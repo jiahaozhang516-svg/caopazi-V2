@@ -1,0 +1,26 @@
+{
+  "user": "你的学号",
+  "pass": "你的统一认证密码",
+  "roomId": "100455352",
+  "preferred": ["3F-B004", "3F-B010", "3F-B002", "3F-B011"],
+  "anchor": "3F-B004",
+  "maxDistance": 3,
+  "parity": "even",
+  "fallbackAny": false,
+  "startTime": "07:30",
+  "endTime": "22:00",
+  "thursdayStart": "10:00",
+  "fridayEnd": "20:00",
+  "prepareLeadSec": 30,
+
+  "wifiSsid": "CMCC-EDU",
+  "campusPrefix": "10.14.",
+  "portalEnabled": true,
+  "portalIp": "10.11.1.3",
+  "portalUrl": "http://10.11.1.3/",
+  "portalUser": "w你的学号",
+  "portalPass": "你的校园网密码",
+
+  "gistId": "",
+  "gistTokenFile": ".secrets/github-token.txt"
+}
