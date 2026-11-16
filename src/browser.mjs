@@ -110,6 +110,7 @@ export class Browser {
   async close() {
     try { await this.send('Browser.close', {}, 3000) } catch {}
     try { this.ws && this.ws.close() } catch {}
+    await new Promise((r) => setTimeout(r, 300))
     try { this.child && this.child.kill() } catch {}
     try { fs.rmSync(this.profile, { recursive: true, force: true }) } catch {}
   }
