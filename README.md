@@ -29,6 +29,9 @@
 
 ---
 
+
+> **第一次安装？** 直接看 [INSTALL.md](INSTALL.md)——那是给 AI 助手照着做的逐步手册。
+
 ## 快速开始
 
 ```powershell
@@ -147,4 +150,89 @@ src/
   status.mjs    gist 状态板
 run-seat.ps1    计划任务启动器
 config.example.json
+```
+
+---
+
+## 手机控制台（dashboard.html）
+
+一个单页 HTML，手机浏览器打开后可「添加到主屏幕」，像 App 一样用。
+
+**能做什么**
+
+- 看状态：今天订到没、几号座、几点到几点、上次更新时间
+- 改设置：抢座开关、开抢时间、时段、优先座位、微信通知开关
+
+**怎么用**
+
+1. 把 `dashboard.html` 传到手机（微信文件传输即可）
+2. 用浏览器打开，菜单里选「添加到主屏幕」
+3. 第一次打开时，在底部填入 GitHub Token（只存本机 localStorage）
+4. 改完点「保存设置」
+
+**生效时机**：设置写进 gist 的 `remote-config.json`，电脑在**下一次运行前**（06:45 唤醒后）同步。
+所以手机改完会提示「下次运行生效」——电脑睡着的时候它是不会实时响应的。
+
+**Token 权限**：只需要对该 gist 的 `gist` 权限（classic token 勾 gist 即可）。
+
+---
+
+## 通知（可选）
+
+**没有通知也能正常抢座。** 抢座逻辑和推送是两条独立的路：没配任何推送时，程序照常运行、照常下单、照常写状态板，只是不会提醒你。
+
+想收到推送，装一个就够了（三选一）：
+
+### 方式一：Server酱³（推荐，手机 App 直接弹窗）
+
+1. 手机装 [Server酱³](https://sc3.ft07.com/)
+2. 登录后复制 SendKey（形如 `sctp12345t...`）
+3. 存到 `.secrets/serverchan3.txt`
+4. `config.json` 里 `"notifyChannels": ["serverchan3"]`
+
+### 方式二：Server酱（推到微信）
+
+1. [sct.ftqq.com](https://sct.ftqq.com/) 微信扫码登录
+2. 复制 SendKey（形如 `SCTxxxxxx`）
+3. 存到 `.secrets/serverchan.txt`
+4. `"notifyChannels": ["serverchan"]`
+
+> 免费额度每天 5 条，正常一天用 1 条。
+
+### 方式三：企业微信群机器人（不需要公网 IP）
+
+1. 注册企业微信（个人可注册，免费）
+2. 建一个 3 人以上的群 → 群设置 → 群机器人 → 添加
+3. 复制 Webhook 地址，存到 `.secrets/wecom-webhook.txt`
+4. `"notifyChannels": ["wecom"]`
+
+## 推送通道怎么选
+
+```json
+"notifyChannels": ["serverchan3"]              // 只发 App
+"notifyChannels": ["serverchan3", "serverchan"] // App + 微信
+"notifyChannels": []                            // 空 = 所有已配置的都发
+"notifyEnabled": false                          // 全局关闭
+```
+
+同时配多个通道会**重复推送**，一般选一个就好。
+
+推送内容示例：
+
+```
+✅ 已抢到 3F-B004（2026-11-16）
+
+座位：3F-B004
+时段：2026-11-16 07:30-22:00
+预约号：147323265
+用时：1 次尝试
+```
+
+失败时：
+
+```
+❌ 没抢到（2026-11-17）
+
+日期：2026-11-17
+原因：尝试 30 次未成功
 ```
