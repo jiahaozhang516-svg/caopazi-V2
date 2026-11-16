@@ -14,6 +14,8 @@ import { Browser, DESKTOP_UA } from './browser.mjs'
 import { createSeatClient } from './libseat.mjs'
 import { ensureOnline, isOnline } from './portal.mjs'
 import { publishStatus } from './status.mjs'
+import { pushAll, formatResult } from './notify.mjs'
+import { fetchRemoteConfig } from './remote-config.mjs'
 
 const ROOT = path.resolve('.')
 const LOG_DIR = path.join(ROOT, 'logs')
@@ -51,6 +53,14 @@ const CFG = Object.assign(
     // 状态板（secret gist）：手机端轮询这里
     gistId: '',
     gistTokenFile: '.secrets/github-token.txt',
+    // 远程配置 & 通知
+    remoteConfig: true,
+    bookingEnabled: true,
+    notifyEnabled: true,
+    serverChanKeyFile: '.secrets/serverchan.txt',
+    wecomWebhookFile: '.secrets/wecom-webhook.txt',
+    serverChan3KeyFile: '.secrets/serverchan3.txt',
+    notifyChannels: [],
     fireAt: arg('at', '07:00:00'),
     maxAttempts: Number(arg('attempts', '90')),
     attemptGapMs: Number(arg('gap', '800')),
@@ -302,7 +312,7 @@ async function main() {
   const date = arg('date', cnDate(1))
   log(`目标日期 ${date}（周${'日一二三四五六'[weekdayCN(date)]}）${DRY ? ' [干跑]' : ''}`)
 
-  // 幂等：已经订上就直接退出（供 07:05 补跑用）
+  // ① 幂等：已经订上就直接退出（纯本地判断，先做，07:05 补跑能秒退）
   const mark = path.join(LOG_DIR, `booked-${date}.json`)
   if (!DRY && fs.existsSync(mark)) {
     const prev = (() => { try { return JSON.parse(fs.readFileSync(mark, 'utf8')) } catch { return {} } })()
@@ -314,7 +324,27 @@ async function main() {
     return { ok: true, date, skipped: true }
   }
 
+  // ② 确保网络：远程配置和状态板都要它
   await waitForCampusNetwork()
+
+  // ③ 远程配置：手机端写进 gist，电脑每次运行前同步（必须放在网络就绪之后）
+  if (CFG.remoteConfig !== false && CFG.gistId) {
+    const rc = await fetchRemoteConfig({ gistId: CFG.gistId, tokenFile: CFG.gistTokenFile, log })
+    if (rc) {
+      Object.assign(CFG, rc)
+      log('已同步远程配置: ' + JSON.stringify(rc))
+    }
+  }
+
+  // ④ 手机端可以一键关掉抢座（比如放假、已有座位）
+  if (CFG.bookingEnabled === false && !DRY) {
+    log('远程配置已关闭抢座，本次跳过')
+    await publishStatus({ gistId: CFG.gistId, tokenFile: CFG.gistTokenFile }, {
+      date, ok: true, seat: null, start: null, end: null,
+      message: '手机端已关闭抢座', at: new Date().toISOString(),
+    }, log)
+    return { ok: true, date, disabled: true }
+  }
 
   // 先把开抢时刻算出来：cookie 越新越好，所以尽量晚才算/登录
   const [hh, mm, ss] = CFG.fireAt.split(':').map(Number)
@@ -457,6 +487,29 @@ async function main() {
       message: ok ? '新增成功' : `未成功（${attempt} 次尝试）`,
       at: new Date().toISOString(),
     }, log)
+
+    // 微信推送（失败不影响主流程）
+    try {
+      if (!DRY) {
+        await pushAll(
+          {
+            serverChanKeyFile: CFG.serverChanKeyFile,
+            serverChan3KeyFile: CFG.serverChan3KeyFile,
+            channels: CFG.notifyChannels,
+            wecomWebhookFile: CFG.wecomWebhookFile,
+            enabled: CFG.notifyEnabled !== false,
+          },
+          formatResult({
+            ok: Boolean(ok), date,
+            seat: ok ? ok.seat : null, start: ok ? ok.start : null, end: ok ? ok.end : null,
+            resvId: ok ? ok.resvId : null, attempts: attempt,
+            reason: ok ? '' : `尝试 ${attempt} 次未成功`, gistId: CFG.gistId,
+          }),
+          log,
+        )
+      }
+    } catch (e) { log('推送异常（忽略）: ' + e.message) }
+
     return { ok: Boolean(ok), date, result: ok }
   } finally {
     try { await browser.close() } catch {}
@@ -469,7 +522,12 @@ async function main() {
 }
 
 main()
-  .then((r) => { console.log('RESULT ' + JSON.stringify({ ok: r && r.ok, date: r && r.date })); process.exit(r && r.ok ? 0 : 3) })
+  .then((r) => {
+    console.log('RESULT ' + JSON.stringify({ ok: r && r.ok, date: r && r.date }))
+    // 直接 process.exit 会触发 libuv 的 async 句柄断言（Windows 上表现为 0xC0000409），
+    // 先让 WebSocket / undici 的连接关干净再退。
+    setTimeout(() => process.exit(r && r.ok ? 0 : 3), 800)
+  })
   .catch(async (e) => {
     log('fatal: ' + e.message)
     console.error(e.stack)
@@ -479,6 +537,19 @@ main()
         message: '运行失败：' + String(e.message).slice(0, 80),
         at: new Date().toISOString(),
       }, log)
+    } catch {}
+    try {
+      await pushAll(
+        {
+          serverChanKeyFile: CFG.serverChanKeyFile,
+          serverChan3KeyFile: CFG.serverChan3KeyFile,
+          channels: CFG.notifyChannels,
+          wecomWebhookFile: CFG.wecomWebhookFile,
+          enabled: CFG.notifyEnabled !== false,
+        },
+        formatResult({ ok: false, date: cnDate(1), reason: '运行失败：' + String(e.message).slice(0, 80) }),
+        log,
+      )
     } catch {}
     process.exit(1)
   })
