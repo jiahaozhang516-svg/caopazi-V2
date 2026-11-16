@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0c">
+<title>caopazi-V2</title>
+<style>
+  :root{
+    --bg:#0b0b0c; --card:#151517; --line:#2a2a2e; --fg:#f2f2f3; --muted:#9a9aa2;
+    --ok:#3ddc84; --bad:#ff5c5c; --accent:#4c8dff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    padding:18px 16px calc(28px + env(safe-area-inset-bottom));}
+  h1{font-size:16px;font-weight:600;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0}
+  .row + .row{border-top:1px solid var(--line)}
+  .label{color:var(--muted);font-size:13px}
+  .value{font-weight:600}
+  .big{font-size:20px;font-weight:700;letter-spacing:.2px}
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .muted{color:var(--muted)}
+  .switch{position:relative;width:50px;height:29px;flex:none}
+  .switch input{opacity:0;width:0;height:0;position:absolute}
+  .slider{position:absolute;inset:0;background:#3a3a40;border-radius:99px;transition:.2s}
+  .slider:before{content:"";position:absolute;width:23px;height:23px;left:3px;top:3px;
+    background:#fff;border-radius:50%;transition:.2s}
+  input:checked + .slider{background:var(--ok)}
+  input:checked + .slider:before{transform:translateX(21px)}
+  input[type=time],input[type=text],input[type=password]{
+    background:#0f0f11;border:1px solid var(--line);color:var(--fg);
+    border-radius:9px;padding:9px 11px;font-size:15px;width:100%;font-family:inherit}
+  input[type=time]{width:110px}
+  button{width:100%;padding:13px;border-radius:12px;border:0;font-size:15px;font-weight:600;
+    background:var(--accent);color:#fff;margin-top:4px}
+  button:disabled{opacity:.5}
+  button.ghost{background:#232327;color:var(--fg)}
+  .hint{color:var(--muted);font-size:12px;margin-top:10px;line-height:1.6}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:26px;
+    background:#242428;border:1px solid var(--line);color:#fff;padding:10px 16px;
+    border-radius:99px;font-size:13px;opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1}
+  .tag{display:inline-block;padding:2px 8px;border-radius:6px;background:#232327;
+    color:var(--muted);font-size:12px;margin-left:6px}
+</style>
+</head>
+<body>
+  <h1>caopazi-V2</h1>
+  <div class="sub">南林图书馆座位 · 手机控制台</div>
+
+  <div class="card">
+    <div class="row">
+      <span class="label">今日/明日预约</span>
+      <span id="stSeat" class="big muted">—</span>
+    </div>
+    <div class="row">
+      <span class="label">时段</span>
+      <span id="stTime" class="value muted">—</span>
+    </div>
+    <div class="row">
+      <span class="label">状态</span>
+      <span id="stMsg" class="value muted">—</span>
+    </div>
+    <div class="row">
+      <span class="label">更新时间</span>
+      <span id="stAt" class="value muted">—</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <span class="label">抢座开关</span>
+      <label class="switch">
+        <input type="checkbox" id="enabled">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="row">
+      <span class="label">开抢时间</span>
+      <input type="time" id="fireAt" step="1">
+    </div>
+    <div class="row">
+      <span class="label">时段开始</span>
+      <input type="time" id="startTime">
+    </div>
+    <div class="row">
+      <span class="label">时段结束</span>
+      <input type="time" id="endTime">
+    </div>
+    <div class="row" style="display:block">
+      <div class="label" style="margin-bottom:8px">优先座位（逗号分隔，按顺序）</div>
+      <input type="text" id="preferred" placeholder="3F-B004,3F-B010,3F-B002">
+    </div>
+    <div class="row">
+      <span class="label">订到后微信通知</span>
+      <label class="switch">
+        <input type="checkbox" id="notify">
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <button id="save">保存设置</button>
+  <button id="reload" class="ghost" style="margin-top:10px">刷新状态</button>
+
+  <div class="card" style="margin-top:12px">
+    <div class="label" style="margin-bottom:8px">Gist ID（状态板地址里的那串）</div>
+    <input type="text" id="gistId" placeholder="你的gistid" autocapitalize="off" autocorrect="off">
+    <div class="label" style="margin:14px 0 8px">GitHub Token（只存本机，用于写配置）</div>
+    <input type="password" id="token" placeholder="github_pat_... 或 ghp_...">
+    <div class="hint">
+      设置要到<b>下一次运行</b>才生效（电脑 06:45 唤醒后同步）。<br>
+      Gist ID 与 Token 都只保存在这台手机的浏览器里，不会上传到任何地方。
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="label" style="margin-bottom:6px">通知（可选）</div>
+    <div class="hint" style="margin-top:0">
+      没装通知 App 也能<b>正常抢座</b>，只是抢到后不会有提醒。<br>
+      想收到推送，装一个即可：<br>
+      · <a href="https://sc3.ft07.com/" style="color:#4c8dff">Server酱³</a>（推荐，手机 App 直接弹窗）<br>
+      · <a href="https://sct.ftqq.com/" style="color:#4c8dff">Server酱</a>（推到微信）<br>
+      装好后把 SendKey 放到电脑的 <code>.secrets/</code> 目录里。
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+function getGistId() {
+  return (localStorage.getItem('gist_id') || '').trim();
+}
+
+function toast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function getToken() {
+  return localStorage.getItem('gh_token') || '';
+}
+
+function fmtAgo(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return iso;
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 60) return s + ' 秒前';
+  if (s < 3600) return Math.floor(s / 60) + ' 分钟前';
+  if (s < 86400) return Math.floor(s / 3600) + ' 小时前';
+  return d.toLocaleDateString('zh-CN');
+}
+
+async function api(path, opts = {}) {
+  const id = getGistId();
+  if (!id) throw new Error('先填 Gist ID');
+  const headers = Object.assign({
+    'accept': 'application/vnd.github+json'
+  }, opts.headers || {});
+  const tok = getToken();
+  if (tok) headers['authorization'] = 'Bearer ' + tok;
+  const r = await fetch('https://api.github.com/gists/' + id + (path || ''), Object.assign({}, opts, { headers }));
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+function renderStatus(st) {
+  if (!st) return;
+  $('stSeat').textContent = st.seat || '未预约';
+  $('stSeat').className = 'big ' + (st.ok && st.seat ? 'ok' : 'muted');
+  $('stTime').textContent = st.start ? st.start + ' – ' + st.end : '—';
+  $('stMsg').textContent = st.message || '—';
+  $('stMsg').className = 'value ' + (st.ok ? 'ok' : 'bad');
+  $('stAt').textContent = fmtAgo(st.at);
+}
+
+function renderConfig(c) {
+  if (!c) return;
+  $('enabled').checked = c.bookingEnabled !== false;
+  $('notify').checked = c.notifyEnabled !== false;
+  $('fireAt').value = (c.fireAt || '07:00:00').slice(0, 8);
+  $('startTime').value = c.startTime || '07:30';
+  $('endTime').value = c.endTime || '22:00';
+  $('preferred').value = (c.preferred || []).join(',');
+}
+
+async function load() {
+  try {
+    const g = await api('');
+    const files = g.files || {};
+    let st = null, cfg = null;
+    try { st = JSON.parse(files['status.json'].content) } catch (e) {}
+    try { cfg = JSON.parse(files['remote-config.json'].content) } catch (e) {}
+    renderStatus(st);
+    renderConfig(cfg);
+  } catch (e) {
+    toast('读取失败：' + e.message);
+  }
+}
+
+async function save() {
+  const btn = $('save');
+  const tok = getToken();
+  if (!tok) { toast('先填 GitHub Token'); $('token').focus(); return }
+  btn.disabled = true;
+  try {
+    const cfg = {
+      bookingEnabled: $('enabled').checked,
+      notifyEnabled: $('notify').checked,
+      fireAt: $('fireAt').value || '07:00:00',
+      startTime: $('startTime').value || '07:30',
+      endTime: $('endTime').value || '22:00',
+      preferred: $('preferred').value.split(',').map(s => s.trim()).filter(Boolean)
+    };
+    await api('', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ files: { 'remote-config.json': { content: JSON.stringify(cfg, null, 2) } } })
+    });
+    toast('已保存，下次运行生效');
+  } catch (e) {
+    toast('保存失败：' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$('save').onclick = save;
+$('reload').onclick = () => { load(); toast('已刷新'); };
+$('token').value = getToken();
+$('token').onchange = () => {
+  localStorage.setItem('gh_token', $('token').value.trim());
+  toast('Token 已保存在本机');
+};
+$('gistId').value = getGistId();
+$('gistId').onchange = () => {
+  localStorage.setItem('gist_id', $('gistId').value.trim());
+  toast('Gist ID 已保存');
+  load();
+};
+
+if (getGistId()) load();
+setInterval(() => { if (getGistId()) load(); }, 30000);
+</script>
+</body>
+</html>
