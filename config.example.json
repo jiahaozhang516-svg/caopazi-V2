@@ -2,7 +2,12 @@
   "user": "你的学号",
   "pass": "你的统一认证密码",
   "roomId": "100455352",
-  "preferred": ["3F-B004", "3F-B010", "3F-B002", "3F-B011"],
+  "preferred": [
+    "3F-B004",
+    "3F-B010",
+    "3F-B002",
+    "3F-B011"
+  ],
   "anchor": "3F-B004",
   "maxDistance": 3,
   "parity": "even",
@@ -12,7 +17,6 @@
   "thursdayStart": "10:00",
   "fridayEnd": "20:00",
   "prepareLeadSec": 30,
-
   "wifiSsid": "CMCC-EDU",
   "campusPrefix": "10.14.",
   "portalEnabled": true,
@@ -20,7 +24,15 @@
   "portalUrl": "http://10.11.1.3/",
   "portalUser": "w你的学号",
   "portalPass": "你的校园网密码",
-
-  "gistId": "",
-  "gistTokenFile": ".secrets/github-token.txt"
+  "gistId": "你的 gist id",
+  "gistTokenFile": ".secrets/github-token.txt",
+  "remoteConfig": true,
+  "bookingEnabled": true,
+  "notifyEnabled": true,
+  "serverChanKeyFile": ".secrets/serverchan.txt",
+  "wecomWebhookFile": ".secrets/wecom-webhook.txt",
+  "serverChan3KeyFile": ".secrets/serverchan3.txt",
+  "notifyChannels": [
+    "serverchan3"
+  ]
 }
